@@ -1,0 +1,3 @@
+package RayCast
+
+object Scene
