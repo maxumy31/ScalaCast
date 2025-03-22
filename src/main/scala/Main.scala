@@ -1,6 +1,18 @@
-import RayCast.Primitives.*
+import RayCast.Geometry.PrimitiveGeometry.*
+import RayCast.Primitives.Primitives
+import RayCast.Primitives.Primitives.*
 import RayCast.Ray.*
-import RayCast.Vec3.*
+import Math.Vec3.*
+import RayCast.Scene.*
+import RayCast.Viewport.*
+import RayCast.Light.*
+import RayCast.Color.*
+import RayCast.Light.Light.{AmbientLight, ComputeLightning, DirectionLight, PointLight}
+
+import scala.concurrent.duration.*
+import java.time.*
+import java.time.format.DateTimeFormatter
+import scala.compiletime.ops.double.%
 
 
 object Main extends App {
@@ -12,53 +24,64 @@ object Main extends App {
 
   val width = 800
   val height = 600
-  val aspectRatio = width / height.toDouble
-
-  val viewport_height = 2.0
-  val viewport_width = viewport_height * (width/height.toDouble)
-
-  val focal_length = 1.0
   val cameraPos = Vec3(0,0,0)
+  val focalLength = 2.0
+  val viewportWidth = 2.0
+  val viewportHeight = viewportWidth * (height.toDouble/width.toDouble)
+  val positions = CreateViewport(cameraPos,focalLength,width,height,viewportWidth,viewportHeight)
+  val pixels = new Array[Int](width * height)
+  val image = CreateEmptyImage(width, height)
 
-  val viewport_u = Vec3(viewport_width,0,0)
-  val viewport_v = Vec3(0,-viewport_height,0)
 
-  val pixel_delta_u = div(viewport_u,width)
-  val pixel_delta_v = div(viewport_v,height)
+  val(currentScene,sceneLoadTime) = measureTime({
+    val spGeom1 = SphereGeometry(3, Vec3(4, 4, 20))
+    val sphere1 = MonocolorSphere(Color(0xFF, 255, 255, 0), spGeom1)
 
-  val pixels = new Array[Int](width * height) // Буфер ARGB
-  val image = CreateEmptyImage(800,600)
+    val spGeom2 = SphereGeometry(3, Vec3(4, -4, 17))
+    val sphere2 = MonocolorSphere(Color(0xFF, 255, 0, 255), spGeom2)
 
-  val upper_left = sub(sub(sub(cameraPos, Vec3(0, 0, focal_length)),div(viewport_u, 2)),div(viewport_v, 2))
-  println(upper_left)
-  // Заполнение буфера градиентом
-  for (y <- 0 until height; x <- 0 until width) {
-    val pixel_center = add(upper_left, add(mult(pixel_delta_u, x), mult(pixel_delta_v, y)))
-    val ray_dir = normalize(sub(pixel_center,cameraPos))
-    val r = (x.toDouble / width * 255).toInt
-    val g = (y.toDouble / height * 255).toInt
-    val b = 128
-    val c = Color(0xFF,r.toChar,g.toChar,b.toChar)
-    val ray = Ray(cameraPos,ray_dir)
-    pixels(y * width + x) = (ColorToInt(rc(ray)))
-  }
+    val spGeom3 = SphereGeometry(8, Vec3(6, 10, 30))
+    val sphere3 = MonocolorSphere(Color(0xFF, 0, 255, 255), spGeom3)
+
+    val spGeom4 = SphereGeometry(8, Vec3(-10, -3, 25))
+    val sphere4 = MonocolorSphere(Color(0xFF, 255, 255, 255), spGeom4)
+    val pointLight = PointLight(1.0, Vec3(4, 0, 20))
+    val ambient = AmbientLight(0.15)
+    val direct = DirectionLight(0.4,Vec3(1,0,0))
+    Scene(Seq(sphere1,sphere2,sphere3,sphere4),Seq(ambient,direct))
+  })
+
+  println("Scene loaded in " + sceneLoadTime.toMillis.toString + "ms")
+
+  val (_, renderingTime) = measureTime({
+    val scene = currentScene
+    positions.map(pos => {
+      val ray_dir = Normalize(Sub(pos, cameraPos))
+      val ray = Ray(cameraPos, ray_dir)
+      IntersectClosestObject(ray, scene) match
+        case Some(obj, t) =>
+          val light = ComputeLightForIntersection(ray, t, GetNormal(RayAt(ray, t), obj.geometry), scene)
+          ColorToInt(Lighten(light, obj.color))
+        case None => ColorToInt(Color(0xFF, 0, 0, 0))
+
+    }).zipWithIndex.foreach { z => {
+      pixels(z._2) = z._1
+    }
+    }
+  })
+  println("Image rendered in " + renderingTime.toMillis.toString + "ms")
   val colorMap = pixels
-
-  def rc(r:Ray) ={
-    val dir = r.direction
-    val a = 0.5 * (dir.y + 1)
-    val sp = Sphere(0.5,Vec3(0,0,-1))
-    Intersect(r, sp) match
-      case Some(v) => Color(0xFF,0,0,0)
-      case None => Color(0xFF,((1.0-a + 0.5*a) * 255).toChar,((1.0-a + 0.7*a) * 255).toChar,((1.0-a + 1.0*a) * 255).toChar)
-    //println(RayAt(r, v));
-    //println(r);
-    //println("######");
-  }
 
   val img = FillImage(image,colorMap)
 
-
   ImageIO.write(img, "png", new File("output.png"))
+  println("New image")
+}
 
+def measureTime[T](block: => T): (T, FiniteDuration) = {
+  val startTime = System.nanoTime()
+  val result = block // Выполняем переданный блок кода
+  val endTime = System.nanoTime()
+  val duration = (endTime - startTime).nanos
+  (result, duration)
 }
