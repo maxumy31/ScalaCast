@@ -1,6 +1,7 @@
-package RayCast
+package RayCast.Scene
 
 import Math.Vec3.*
+import RayCast.Scene.Camera.Camera
 
 object Viewport {
   def CreateViewport(cameraPosition : Vec3, focalDistance: Double, width:Int, height:Int, viewportWidth : Double, viewportHeight : Double) : Seq[Vec3] = {
@@ -16,5 +17,13 @@ object Viewport {
       })
     })
     l
+  }
+
+  def CreateViewportFromCamera(cam : Camera) : Seq[Vec3] = {
+    val viewportHeight = 2 * math.tan(math.toRadians(cam.fov / 2)) * cam.focalLength
+    val viewportWidth = viewportHeight * cam.aspectRatio
+    //Смотрим всегда на z+, это не очень хорошо ну да ладно
+    val camDir = Vec3(0,0,1)
+    
   }
 }

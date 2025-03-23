@@ -18,4 +18,19 @@ object Color {
     Color(color.a, (color.r * coef).toChar, (color.g * coef).toChar, (color.b * coef).toChar)
   }
 
+  def Mix(a:Color,b:Color,f:Double) = {
+    val factor = math.max(0.0, math.min(1.0, f))
+
+    def lerp(start: Int, end: Int): Int =
+      math.round(start * (1 - factor) + end * factor).toInt
+
+
+    Color(
+      lerp(a.a, b.a).toChar,
+      lerp(a.r, b.r).toChar,
+      lerp(a.g, b.g).toChar,
+      lerp(a.b, b.b).toChar
+    )
+  }
+
 }

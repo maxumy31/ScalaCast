@@ -20,7 +20,7 @@ object Vec3 {
   }
 
   def Length(a:Vec3):Double = {
-    (a.x * a.x) + (a.y * a.y) + (a.z * a.z)
+    scala.math.sqrt((a.x * a.x) + (a.y * a.y) + (a.z * a.z))
   }
 
   def Dot(a:Vec3, b:Vec3) = {
