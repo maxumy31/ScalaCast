@@ -2,19 +2,18 @@ package RayCast.Scene
 
 import Math.Vec3.*
 import RayCast.Color.*
-import RayCast.Geometry.PrimitiveGeometry.GetNormal
+import RayCast.Geometry.PrimitiveGeometry.{GeometryObject, GetNormal}
 import RayCast.Light.Light.*
-import RayCast.Primitives.Primitives.*
+import RayCast.Primitives.Material.Material
+import RayCast.Primitives.SceneObjects.*
 import RayCast.Ray.*
 
 object Scene {
-  case class Scene(
-                  objects: Seq[MonocolorSphere],
-                  lights : Seq[LightSource]
-                  )
-  def IntersectClosestObject(ray:Ray,scene:Scene):Option[(MonocolorSphere,Double)] = {
+  case class Scene(objects: Seq[SceneObject], lights : Seq[LightSource])
+
+  def IntersectClosestObject(ray:Ray,scene:Scene):Option[(SceneObject,Double)] = {
       scene.objects.flatMap { obj =>
-        Intersect(ray, obj) match {
+        IntersectObject(ray, obj) match {
           case Some(t) =>
             Some(obj,t)
           case None => None
@@ -34,23 +33,29 @@ object Scene {
     }).sum
   }
 
-  def ComputeReflection(ray:Ray,t:Double,obj:MonocolorSphere,maxDepth:Int,atteniation:Double,scene:Scene) : Option[Color] = {
-    if maxDepth <= 0  || atteniation <= 0.01 then None else {
-      val normal = GetNormal(RayAt(ray, t), obj.geometry)
+  def ComputeReflection(ray:Ray, t:Double, obj:SceneObject, maxDepth:Int, atteniation:Double, scene:Scene) : Option[Color] = {
+    def refl(geometry: GeometryObject,material:Material) = {
+      val normal = GetNormal(RayAt(ray, t), geometry)
       val reflDir = ReflectRay(ray, normal)
-      val newRay = Ray(Add(RayAt(ray, t),Mult(normal,0.01)), reflDir)
+      val newRay = Ray(Add(RayAt(ray, t), Mult(normal, 0.01)), reflDir)
       IntersectClosestObject(newRay, scene) match {
         case None => None
         case Some(sphere, newT) =>
-          val reflectedColor = sphere.material.albedo
-          ComputeReflection(newRay, newT, sphere, maxDepth - 1, atteniation * obj.material.reflective,scene) match
+          val reflectedColor = material.albedo
+          ComputeReflection(newRay, newT, sphere, maxDepth - 1, atteniation * material.reflective, scene) match
             case Some(col) =>
-              val light = ComputeLightForIntersection(newRay,newT,GetNormal(RayAt(newRay,newT),sphere.geometry),scene)
-              val newColor = (Mix(reflectedColor, col,obj.material.reflective))
+              val light = ComputeLightForIntersection(newRay, newT, GetNormal(RayAt(newRay, newT), geometry), scene)
+              val newColor = (Mix(reflectedColor, col, material.reflective))
               Some(newColor)
             case None =>
               Some(reflectedColor)
       }
+    }
+
+    if maxDepth <= 0  || atteniation <= 0.01 then None else {
+      obj match
+        case MonochromeSphere(material,geometry) => refl(geometry,material)
+        case MonochromeTriangle(mat,geo) => refl(geo,mat)
     }
   }
 

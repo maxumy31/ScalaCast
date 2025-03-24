@@ -4,7 +4,7 @@ import Math.Vec3.*
 import RayCast.Scene.Camera.Camera
 
 object Viewport {
-  def CreateViewport(cameraPosition : Vec3, focalDistance: Double, width:Int, height:Int, viewportWidth : Double, viewportHeight : Double) : Seq[Vec3] = {
+  /*def CreateViewport(cameraPosition : Vec3, focalDistance: Double, width:Int, height:Int, viewportWidth : Double, viewportHeight : Double) : Seq[Vec3] = {
     val aspectRatio = height.toDouble / width
     val viewportHeight = viewportWidth * aspectRatio
     val pixelSize = viewportWidth / width
@@ -17,13 +17,28 @@ object Viewport {
       })
     })
     l
-  }
+  }*/
 
-  def CreateViewportFromCamera(cam : Camera) : Seq[Vec3] = {
+  def CreateViewportFromCamera(cam: Camera, pointsPerWidth: Int, pointsPerHeight: Int): Seq[Vec3] = {
     val viewportHeight = 2 * math.tan(math.toRadians(cam.fov / 2)) * cam.focalLength
     val viewportWidth = viewportHeight * cam.aspectRatio
-    //Смотрим всегда на z+, это не очень хорошо ну да ладно
-    val camDir = Vec3(0,0,1)
-    
+
+    val pixelWidth = viewportWidth / (pointsPerWidth)
+    val pixelHeight = viewportHeight / (pointsPerHeight)
+
+    val camForward = Vec3(0, 0, 1)
+
+    (0 until pointsPerHeight).flatMap { y =>
+      (0 until pointsPerWidth).map { x =>
+        val u = (x.toDouble / (pointsPerWidth)) - 0.5
+        val v = 0.5 - (y.toDouble / (pointsPerHeight))
+
+        val xPos = u * viewportWidth
+        val yPos = v * viewportHeight
+        val zPos = cam.focalLength
+
+        Vec3(xPos + cam.position.x,yPos + cam.position.y,zPos + cam.position.z)
+      }
+    }
   }
 }

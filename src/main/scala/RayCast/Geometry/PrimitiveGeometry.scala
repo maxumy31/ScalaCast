@@ -6,8 +6,9 @@ import Math.Vec3.*
 object PrimitiveGeometry {
   trait GeometryObject
   case class SphereGeometry(radius:Double, position:Vec3) extends GeometryObject
+  case class TriangleGeometry(a:Vec3, b: Vec3, c : Vec3) extends GeometryObject
 
-  def Intersect(ray: Ray, sphere: SphereGeometry): Option[Double] = {
+  def IntersectSphere(ray: Ray, sphere: SphereGeometry): Option[Double] = {
     val oc = Sub(sphere.position, ray.origin)
     val a = Dot(ray.direction,ray.direction)
     val b = -2.0 * Dot(ray.direction,oc)
@@ -27,10 +28,39 @@ object PrimitiveGeometry {
     }
   }
 
+  def IntersectTriangle(ray:Ray,triangle:TriangleGeometry) : Option[Double] = {
+    val edge1 = Sub(triangle.b,triangle.a)
+    val edge2 = Sub(triangle.c,triangle.a)
+    val h = Cross(ray.direction,edge2)
+    val a = Dot(edge1,h)
+
+    if (math.abs(a) < 1e-8) return None
+
+    val f = 1.0 / a
+    val s = Sub(ray.origin,triangle.a)
+    val u = f * Dot(s,h)
+    if (u < 0 || u > 1) return None
+
+    val q = Cross(s,edge1)
+    val v = f * Dot(ray.direction,q)
+    if (v < 0 || u + v > 1) return None
+
+    val t = f * Dot(edge2,q)
+    if (t > 1e-8) Some(t) else None
+  }
+
+  def Intersect(ray:Ray, geometryObject: GeometryObject) : Option[Double] = {
+    geometryObject match
+      case SphereGeometry(rad,pos) => IntersectSphere(ray,SphereGeometry(rad,pos))
+      case TriangleGeometry(a,b,c) => IntersectTriangle(ray,TriangleGeometry(a,b,c))
+      case _ => println("Unknown intersection geometry.");None
+  }
+
 
   def GetNormal(position:Vec3, geom: GeometryObject) = {
     geom match
       case SphereGeometry(rad,cent) => Normalize(Sub(position,cent))
+      case TriangleGeometry(a,b,c) => Normalize(Cross(Sub(b,a),Sub(c,a)))
   }
 }
 
